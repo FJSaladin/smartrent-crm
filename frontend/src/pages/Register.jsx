@@ -1,32 +1,29 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, setToken, getToken } from "../services/api";
+import { apiFetch, setToken } from "../services/api";
 import "./auth.css";
 
-export default function Login() {
+export default function Register() {
   const navigate = useNavigate();
 
-  const [role, setRole] = useState("landlord"); // landlord | tenant
+  const [role, setRole] = useState("landlord");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const token = getToken();
-    if (token) navigate("/dashboard");
-  }, [navigate]);
-
-  async function handleLogin(e) {
+  async function handleRegister(e) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const data = await apiFetch("/api/auth/login", {
+      const data = await apiFetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ name, email, phone, password, role }),
       });
 
       setToken(data.token);
@@ -50,33 +47,33 @@ export default function Login() {
 
           <div className="hero">
             <h1>
-              Gestiona tus <br />
-              propiedades <br />
-              <span className="accent">sin fricción.</span>
+              Crea tu cuenta <br />
+              y empieza <br />
+              <span className="accent">hoy mismo.</span>
             </h1>
             <p>
-              Centraliza contratos, pagos y mantenimiento en una plataforma inteligente
-              diseñada para landlords modernos.
+              Configura tu rol, guarda tus datos y accede al panel para gestionar
+              propiedades, pagos y mantenimiento.
             </p>
 
             <div className="stats">
               <div className="stat">
-                <div className="kpi" style={{ color: "var(--good)" }}>98%</div>
-                <div className="label">Pagos a tiempo</div>
+                <div className="kpi" style={{ color: "var(--good)" }}>Rápido</div>
+                <div className="label">Registro en minutos</div>
               </div>
               <div className="stat">
-                <div className="kpi">3.2x</div>
-                <div className="label">Más eficiencia</div>
+                <div className="kpi">Seguro</div>
+                <div className="label">JWT + cifrado</div>
               </div>
               <div className="stat">
-                <div className="kpi">24h</div>
-                <div className="label">Respuesta media</div>
+                <div className="kpi">Todo</div>
+                <div className="label">En un solo lugar</div>
               </div>
               <div className="stat">
                 <div className="kpi" style={{ background: "linear-gradient(90deg, var(--accent), var(--accent2))", WebkitBackgroundClip: "text", color: "transparent" }}>
                   IA
                 </div>
-                <div className="label">Asistente activo</div>
+                <div className="label">Próximamente</div>
               </div>
             </div>
           </div>
@@ -91,8 +88,8 @@ export default function Login() {
         {/* RIGHT */}
         <div className="auth-right">
           <div className="panel">
-            <h2>Bienvenido de nuevo</h2>
-            <p className="subtitle">Inicia sesión para acceder a tu panel</p>
+            <h2>Crear cuenta</h2>
+            <p className="subtitle">Completa tus datos para empezar</p>
 
             <div className="role-tabs">
               <button
@@ -111,7 +108,19 @@ export default function Login() {
               </button>
             </div>
 
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleRegister}>
+              <div className="field">
+                <label>Nombre</label>
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="Tu nombre"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+
               <div className="field">
                 <label>Correo electrónico</label>
                 <input
@@ -125,41 +134,42 @@ export default function Login() {
               </div>
 
               <div className="field">
+                <label>Teléfono (opcional)</label>
+                <input
+                  className="input"
+                  type="tel"
+                  placeholder="+1 809 000 0000"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="field">
                 <label>Contraseña</label>
                 <input
                   className="input"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="mínimo 6 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  minLength={6}
                 />
-              </div>
-
-              <div className="row">
-                <span />
-                <button
-                  type="button"
-                  className="link"
-                  onClick={() => alert("Luego hacemos 'Olvidé mi contraseña' 😄")}
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
               </div>
 
               {error && <p className="error">{error}</p>}
 
               <button className="btn-primary" type="submit" disabled={loading}>
-                {loading ? "Iniciando..." : "Iniciar sesión →"}
+                {loading ? "Creando..." : "Crear cuenta →"}
               </button>
             </form>
 
             <div className="divider" />
 
             <p className="small">
-              ¿No tienes cuenta?{" "}
-              <button className="link" type="button" onClick={() => navigate("/register")}>
-                Crear cuenta gratis
+              ¿Ya tienes cuenta?{" "}
+              <button className="link" type="button" onClick={() => navigate("/")}>
+                Iniciar sesión
               </button>
             </p>
           </div>
