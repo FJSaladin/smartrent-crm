@@ -166,7 +166,7 @@ export default function Units() {
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Units</h1>
+      <h1 style={{ marginTop: 0 }}>Unidades</h1>
       <p style={{ color: "#cbd5e1" }}>
         Gestiona las unidades/apartamentos dentro de cada propiedad.
       </p>

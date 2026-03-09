@@ -126,7 +126,7 @@ export default function Properties() {
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Properties</h1>
+      <h1 style={{ marginTop: 0 }}>Propiedades</h1>
       <p style={{ color: "#cbd5e1" }}>
         Gestiona las propiedades registradas en SmartRent.
       </p>

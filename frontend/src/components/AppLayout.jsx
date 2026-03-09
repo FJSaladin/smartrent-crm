@@ -29,10 +29,10 @@ export default function AppLayout() {
 
   const navItems = [
     { to: "/dashboard", label: "Dashboard" },
-    { to: "/properties", label: "Properties" },
-    { to: "/units", label: "Units" },
-    { to: "/tenants", label: "Tenants" },
-    { to: "/leases", label: "Leases" },
+    { to: "/properties", label: "Propiedades" },
+    { to: "/units", label: "Unidades" },
+    { to: "/tenants", label: "Inquilinos" },
+    { to: "/leases", label: "Alquileres" },
     { to: "/tickets", label: "Tickets" },
   ];
 

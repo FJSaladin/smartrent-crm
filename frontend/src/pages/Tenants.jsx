@@ -132,7 +132,7 @@ export default function Tenants() {
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Tenants</h1>
+      <h1 style={{ marginTop: 0 }}>Inquilinos</h1>
       <p style={{ color: "#cbd5e1" }}>
         Gestiona los inquilinos registrados en SmartRent.
       </p>
@@ -170,7 +170,7 @@ export default function Tenants() {
             }}
           >
             <h2 style={{ margin: 0 }}>
-              {editingId ? "Editar tenant" : "Nuevo tenant"}
+              {editingId ? "Editar Inquillino" : "Nuevo Inquillino"}
             </h2>
 
             {editingId && (
@@ -243,18 +243,18 @@ export default function Tenants() {
                   : "Creando..."
                 : editingId
                 ? "Guardar cambios"
-                : "Crear tenant"}
+                : "Crear Inquilino"}
             </button>
           </form>
         </div>
 
         <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Listado de tenants</h2>
+          <h2 style={{ marginTop: 0 }}>Listado de inquilinos</h2>
 
           {loading ? (
             <p>Cargando tenants...</p>
           ) : tenants.length === 0 ? (
-            <p style={{ color: "#cbd5e1" }}>Aún no hay tenants registrados.</p>
+            <p style={{ color: "#cbd5e1" }}>Aún no hay Inquilinos registrados.</p>
           ) : (
             <div style={{ display: "grid", gap: "14px" }}>
               {tenants.map((tenant) => (

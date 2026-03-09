@@ -250,7 +250,7 @@ export default function Leases() {
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Leases</h1>
+      <h1 style={{ marginTop: 0 }}>Alquileres</h1>
       <p style={{ color: "#cbd5e1" }}>
         Gestiona los contratos de alquiler en SmartRent.
       </p>
@@ -288,7 +288,7 @@ export default function Leases() {
             }}
           >
             <h2 style={{ margin: 0 }}>
-              {editingId ? "Editar lease" : "Nuevo lease"}
+              {editingId ? "Editar alquiler" : "Nuevo alquiler"}
             </h2>
 
             {editingId && (
@@ -303,7 +303,7 @@ export default function Leases() {
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={fieldStyle}>
-                <label>Property</label>
+                <label>Propiedad</label>
                 <select
                   style={inputStyle}
                   value={propertyId}
@@ -319,7 +319,7 @@ export default function Leases() {
               </div>
 
               <div style={fieldStyle}>
-                <label>Unit</label>
+                <label>Unidad</label>
                 <select
                   style={inputStyle}
                   value={unitId}
@@ -336,13 +336,13 @@ export default function Leases() {
               </div>
 
               <div style={fieldStyle}>
-                <label>Tenant</label>
+                <label>Inquilino</label>
                 <select
                   style={inputStyle}
                   value={tenantId}
                   onChange={(e) => setTenantId(e.target.value)}
                 >
-                  <option value="">Selecciona un tenant</option>
+                  <option value="">Selecciona un inquilino</option>
                   {tenants.map((tenant) => (
                     <option key={tenant._id} value={tenant._id}>
                       {tenant.fullName}
@@ -442,7 +442,7 @@ export default function Leases() {
         </div>
 
         <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Listado de leases</h2>
+          <h2 style={{ marginTop: 0 }}>Listado de Alquileres</h2>
 
           {loading ? (
             <p>Cargando leases...</p>
