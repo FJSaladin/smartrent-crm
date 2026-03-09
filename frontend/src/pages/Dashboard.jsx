@@ -1,36 +1,47 @@
-import { useNavigate } from "react-router-dom";
-import { clearToken } from "../services/api";
-
 export default function Dashboard() {
-  const navigate = useNavigate();
-
-  function handleLogout() {
-    clearToken();          // Borra JWT del localStorage
-    navigate("/");         // Redirige al login
-  }
-
   return (
-    <div style={{ padding: "40px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h2>Dashboard SmartRent CRM</h2>
+    <div>
+      <h1 style={{ marginTop: 0 }}>Dashboard</h1>
+      <p style={{ color: "#cbd5e1" }}>
+        Bienvenido a SmartRent CRM. Desde aquí podrás acceder a los módulos del sistema.
+      </p>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "8px 14px",
-            borderRadius: "8px",
-            border: "none",
-            cursor: "pointer",
-            background: "#ff4d6d",
-            color: "white",
-            fontWeight: "bold"
-          }}
-        >
-          Cerrar sesión
-        </button>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "20px",
+          marginTop: "24px",
+        }}
+      >
+        <div style={cardStyle}>
+          <h3>Properties</h3>
+          <p>Gestiona propiedades registradas.</p>
+        </div>
+
+        <div style={cardStyle}>
+          <h3>Tenants</h3>
+          <p>Administra inquilinos y perfiles.</p>
+        </div>
+
+        <div style={cardStyle}>
+          <h3>Leases</h3>
+          <p>Consulta contratos activos e historial.</p>
+        </div>
+
+        <div style={cardStyle}>
+          <h3>Tickets</h3>
+          <p>Visualiza reportes y mantenimiento.</p>
+        </div>
       </div>
-
-      <p>Bienvenido 🎉</p>
     </div>
   );
 }
+
+const cardStyle = {
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: "16px",
+  padding: "20px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+};

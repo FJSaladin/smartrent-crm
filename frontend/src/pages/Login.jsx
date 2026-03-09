@@ -6,7 +6,7 @@ import "./auth.css";
 export default function Login() {
   const navigate = useNavigate();
 
-  const [role, setRole] = useState("landlord"); // landlord | tenant
+  const [role, setRole] = useState("landlord");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -21,27 +21,50 @@ export default function Login() {
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setError("Debes completar correo y contraseña");
+      return;
+    }
+
+    if (cleanPassword.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const data = await apiFetch("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: cleanPassword,
+          role,
+        }),
       });
 
       setToken(data.token);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
     }
   }
 
+  function goToResendVerification() {
+    navigate("/resend-verification", {
+      state: { email: email.trim().toLowerCase() },
+    });
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-wrap">
-        {/* LEFT */}
         <div className="auth-left">
           <div className="brand">
             <div className="brand-badge">🏠</div>
@@ -55,8 +78,8 @@ export default function Login() {
               <span className="accent">sin fricción.</span>
             </h1>
             <p>
-              Centraliza contratos, pagos y mantenimiento en una plataforma inteligente
-              diseñada para landlords modernos.
+              Centraliza contratos, pagos y mantenimiento en una plataforma
+              inteligente diseñada para landlords modernos.
             </p>
 
             <div className="stats">
@@ -73,7 +96,14 @@ export default function Login() {
                 <div className="label">Respuesta media</div>
               </div>
               <div className="stat">
-                <div className="kpi" style={{ background: "linear-gradient(90deg, var(--accent), var(--accent2))", WebkitBackgroundClip: "text", color: "transparent" }}>
+                <div
+                  className="kpi"
+                  style={{
+                    background: "linear-gradient(90deg, var(--accent), var(--accent2))",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent",
+                  }}
+                >
                   IA
                 </div>
                 <div className="label">Asistente activo</div>
@@ -88,7 +118,6 @@ export default function Login() {
           </div>
         </div>
 
-        {/* RIGHT */}
         <div className="auth-right">
           <div className="panel">
             <h2>Bienvenido de nuevo</h2>
@@ -141,9 +170,20 @@ export default function Login() {
                 <button
                   type="button"
                   className="link"
-                  onClick={() => alert("Luego hacemos 'Olvidé mi contraseña' 😄")}
+                  onClick={() => navigate("/forgot-password")}
                 >
                   ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+
+              <div className="row">
+                <span />
+                <button
+                  type="button"
+                  className="link"
+                  onClick={goToResendVerification}
+                >
+                  Reenviar correo de confirmación
                 </button>
               </div>
 
@@ -158,7 +198,11 @@ export default function Login() {
 
             <p className="small">
               ¿No tienes cuenta?{" "}
-              <button className="link" type="button" onClick={() => navigate("/register")}>
+              <button
+                className="link"
+                type="button"
+                onClick={() => navigate("/register")}
+              >
                 Crear cuenta gratis
               </button>
             </p>

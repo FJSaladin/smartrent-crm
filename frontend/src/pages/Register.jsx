@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, setToken } from "../services/api";
+import { apiFetch } from "../services/api";
 import "./auth.css";
 
 export default function Register() {
@@ -11,6 +11,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -18,18 +19,52 @@ export default function Register() {
   async function handleRegister(e) {
     e.preventDefault();
     setError("");
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+    const cleanPassword = password.trim();
+    const cleanConfirmPassword = confirmPassword.trim();
+
+    if (!cleanName || !cleanEmail || !cleanPassword) {
+      setError("Debes completar nombre, correo y contraseña");
+      return;
+    }
+
+    if (cleanName.length < 2) {
+      setError("El nombre debe tener al menos 2 caracteres");
+      return;
+    }
+
+    if (cleanPassword.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    if (cleanPassword !== cleanConfirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const data = await apiFetch("/api/auth/register", {
+      await apiFetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, phone, password, role }),
+        body: JSON.stringify({
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          password: cleanPassword,
+          role,
+        }),
       });
 
-      setToken(data.token);
-      navigate("/dashboard");
+      navigate("/resend-verification", {
+        state: { email: cleanEmail },
+      });
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "No se pudo crear la cuenta");
     } finally {
       setLoading(false);
     }
@@ -38,7 +73,6 @@ export default function Register() {
   return (
     <div className="auth-page">
       <div className="auth-wrap">
-        {/* LEFT */}
         <div className="auth-left">
           <div className="brand">
             <div className="brand-badge">🏠</div>
@@ -58,7 +92,9 @@ export default function Register() {
 
             <div className="stats">
               <div className="stat">
-                <div className="kpi" style={{ color: "var(--good)" }}>Rápido</div>
+                <div className="kpi" style={{ color: "var(--good)" }}>
+                  Rápido
+                </div>
                 <div className="label">Registro en minutos</div>
               </div>
               <div className="stat">
@@ -70,7 +106,15 @@ export default function Register() {
                 <div className="label">En un solo lugar</div>
               </div>
               <div className="stat">
-                <div className="kpi" style={{ background: "linear-gradient(90deg, var(--accent), var(--accent2))", WebkitBackgroundClip: "text", color: "transparent" }}>
+                <div
+                  className="kpi"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, var(--accent), var(--accent2))",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent",
+                  }}
+                >
                   IA
                 </div>
                 <div className="label">Próximamente</div>
@@ -85,7 +129,6 @@ export default function Register() {
           </div>
         </div>
 
-        {/* RIGHT */}
         <div className="auth-right">
           <div className="panel">
             <h2>Crear cuenta</h2>
@@ -157,6 +200,19 @@ export default function Register() {
                 />
               </div>
 
+              <div className="field">
+                <label>Confirmar contraseña</label>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder="repite tu contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+
               {error && <p className="error">{error}</p>}
 
               <button className="btn-primary" type="submit" disabled={loading}>
@@ -168,7 +224,11 @@ export default function Register() {
 
             <p className="small">
               ¿Ya tienes cuenta?{" "}
-              <button className="link" type="button" onClick={() => navigate("/")}>
+              <button
+                className="link"
+                type="button"
+                onClick={() => navigate("/")}
+              >
                 Iniciar sesión
               </button>
             </p>

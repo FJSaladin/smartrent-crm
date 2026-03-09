@@ -249,3 +249,13 @@
   text-align:center;
 }
 .small b{ color: rgba(232,233,255,.9); }
+
+.success {
+  margin: 0 0 12px;
+  color: #22c55e;
+  font-size: 13px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
