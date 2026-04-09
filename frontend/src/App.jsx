@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
 import Leases from "./pages/Leases";
 import Units from "./pages/Units";
+import Tickets from "./pages/Tickets";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/leases" element={<Leases />} />
         <Route path="/units" element={<Units />} />
+        <Route path="/tickets" element={<Tickets />} />
       </Route>
     </Routes>
   );

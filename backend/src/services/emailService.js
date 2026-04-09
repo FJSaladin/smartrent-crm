@@ -40,7 +40,24 @@ async function sendVerificationEmail(to, verifyLink) {
   });
 }
 
+async function sendTicketReplyEmail(to, ticket, message) {
+  await transporter.sendMail({
+    from: `"SmartRent CRM" <${process.env.SMTP_USER}>`,
+    to,
+    subject: `Actualización de ticket ${ticket._id}`,
+    html: `
+      <h2>Actualización de ticket</h2>
+      <p><strong>Número:</strong> ${ticket._id}</p>
+      <p><strong>Título:</strong> ${ticket.title}</p>
+      <p><strong>Estado actual:</strong> ${ticket.status}</p>
+      <hr />
+      <p>${message}</p>
+    `,
+  });
+}
+
 module.exports = {
   sendResetPasswordEmail,
   sendVerificationEmail,
+  sendTicketReplyEmail,
 };
