@@ -7,7 +7,7 @@ import {
   pageCard, formInput, formField, btn, labelStyle,
   sectionHeader, sectionTitle, twoColLayout,
   pageTitle, pageSubtitle, InfoRow, CountBadge,
-} from "../components/ui/formStyles";
+} from "../components/ui/FormStyles.jsx";
 
 function fmtDate(value) {
   if (!value) return "";

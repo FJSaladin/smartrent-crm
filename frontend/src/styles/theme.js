@@ -93,6 +93,7 @@ export const input = {
   color: colors.text.primary,
   outline: "none",
   fontSize: "14px",
+  boxSizing: "border-box",
 };
 
 // Estilos de campo (label + input)

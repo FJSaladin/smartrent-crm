@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch, setToken, getToken } from "../services/api";
+import { apiFetch, setToken, setUserRole, getToken, clearToken } from "../services/api";
 import "./auth.css";
+
+function redirectByRole(role, navigate) {
+  if (role === "tenant") {
+    navigate("/tenant/dashboard");
+  } else {
+    navigate("/dashboard");
+  }
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,13 +17,25 @@ export default function Login() {
   const [role, setRole] = useState("landlord");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
 
+  // Si ya hay sesión activa, redirigir según el rol guardado
   useEffect(() => {
     const token = getToken();
-    if (token) navigate("/dashboard");
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+    apiFetch("/api/auth/me")
+      .then((data) => {
+        redirectByRole(data.user?.role, navigate);
+      })
+      .catch(() => {
+        clearToken();
+        setChecking(false);
+      });
   }, [navigate]);
 
   async function handleLogin(e) {
@@ -48,7 +68,8 @@ export default function Login() {
       });
 
       setToken(data.token);
-      navigate("/dashboard");
+      setUserRole(data.user.role);
+      redirectByRole(data.user.role, navigate);
     } catch (err) {
       setError(err.message || "No se pudo iniciar sesión");
     } finally {
@@ -61,6 +82,9 @@ export default function Login() {
       state: { email: email.trim().toLowerCase() },
     });
   }
+
+  // Mientras verifica sesión activa, no renderizar el formulario
+  if (checking) return null;
 
   return (
     <div className="auth-page">

@@ -1,20 +1,37 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { apiFetch } from "../services/api";
 import { useToast, ToastContainer } from "../components/ui/Toast";
-import { PriorityBadge, TicketStatusBadge } from "../components/ui/Badge";
-import { EmptyTickets, LoadingRows } from "../components/ui/EmptyState";
-import { colors, radius } from "../styles/theme";
 import {
-  pageCard, formInput, labelStyle, sectionHeader, sectionTitle,
-} from "../components/ui/formStyles";
+  colors, card, radius, input, field, buttons,
+  getPriorityBadge, getStatusBadgeStyle,
+} from "../styles/theme";
 
-// ─── Orden de prioridad ───────────────────────────────────────────────────────
 const PRIORITY_ORDER = { high: 1, medium: 2, low: 3 };
 
+const PRIORITY_LABELS = {
+  high:   "🔴 Alta",
+  medium: "🟡 Media",
+  low:    "🟢 Baja",
+};
+
+const STATUS_LABELS = {
+  open:        "Abierto",
+  in_progress: "En progreso",
+  resolved:    "Resuelto",
+  closed:      "Cerrado",
+};
+
+const STATUS_COLORS = {
+  open:        colors.action.danger,
+  in_progress: colors.action.warning,
+  resolved:    colors.action.success,
+  closed:      colors.text.muted,
+};
+
 const PRIORITY_BORDER = {
-  high:   "#ef4444",
-  medium: "#f59e0b",
-  low:    "#22c55e",
+  high:   colors.action.danger,
+  medium: colors.action.warning,
+  low:    colors.action.success,
 };
 
 const CATEGORY_LABELS = {
@@ -27,28 +44,27 @@ const CATEGORY_LABELS = {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function Tickets() {
-  const [tickets, setTickets]           = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [savingId, setSavingId]         = useState("");
+  const [tickets, setTickets]               = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [savingId, setSavingId]             = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [replyMessage, setReplyMessage] = useState("");
-  const [sendingReply, setSendingReply] = useState(false);
+  const [replyMessage, setReplyMessage]     = useState("");
+  const [sendingReply, setSendingReply]     = useState(false);
 
-  // Filtros
   const [tenantFilter, setTenantFilter]     = useState("");
   const [propertyFilter, setPropertyFilter] = useState("");
   const [statusFilter, setStatusFilter]     = useState("");
 
   const { toasts, showToast, removeToast } = useToast();
 
-  useEffect(() => { loadTickets(); }, []);
-
-  // Cierra el modal con Escape
+  // Cerrar modal con Escape
   useEffect(() => {
     function onKey(e) { if (e.key === "Escape") setSelectedTicket(null); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => { loadTickets(); }, []);
 
   async function loadTickets() {
     try {
@@ -61,11 +77,10 @@ export default function Tickets() {
     }
   }
 
-  // Opciones únicas para los filtros
   const tenants = useMemo(() => {
     const map = new Map();
     tickets.forEach((t) => {
-      if (t.tenantId?._id) map.set(t.tenantId._id, t.tenantId.fullName || "Tenant");
+      if (t.tenantId?._id) map.set(t.tenantId._id, t.tenantId.fullName || "Inquilino");
     });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [tickets]);
@@ -78,8 +93,7 @@ export default function Tickets() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [tickets]);
 
-  // Tickets filtrados y ordenados
-  const filtered = useMemo(() => {
+  const filteredTickets = useMemo(() => {
     return tickets
       .filter((t) => {
         const okTenant   = !tenantFilter   || t.tenantId?._id   === tenantFilter;
@@ -88,13 +102,14 @@ export default function Tickets() {
         return okTenant && okProperty && okStatus;
       })
       .sort((a, b) => {
-        const pd = (PRIORITY_ORDER[a.priority] || 9) - (PRIORITY_ORDER[b.priority] || 9);
+        const pd = (PRIORITY_ORDER[a.priority] || 99) - (PRIORITY_ORDER[b.priority] || 99);
         return pd !== 0 ? pd : new Date(b.createdAt) - new Date(a.createdAt);
       });
   }, [tickets, tenantFilter, propertyFilter, statusFilter]);
 
-  // Actualiza campo de un ticket (prioridad o estado)
-  async function updateField(ticketId, updates) {
+  const hasFilters = tenantFilter || propertyFilter || statusFilter;
+
+  async function updateTicketField(ticketId, updates) {
     setSavingId(ticketId);
     try {
       const data = await apiFetch(`/api/tickets/${ticketId}`, {
@@ -110,7 +125,6 @@ export default function Tickets() {
     }
   }
 
-  // Envía respuesta por email
   async function handleSendEmail() {
     if (!replyMessage.trim()) { showToast("Escribe un mensaje antes de enviar", "error"); return; }
     setSendingReply(true);
@@ -132,7 +146,6 @@ export default function Tickets() {
     }
   }
 
-  // Envía notificación por WhatsApp
   async function handleSendWhatsApp() {
     if (!replyMessage.trim()) { showToast("Escribe un mensaje antes de enviar", "error"); return; }
     setSendingReply(true);
@@ -154,106 +167,301 @@ export default function Tickets() {
     }
   }
 
-  function clearFilters() {
-    setTenantFilter(""); setPropertyFilter(""); setStatusFilter("");
-  }
-
-  const hasFilters = tenantFilter || propertyFilter || statusFilter;
-
   return (
     <div>
       {/* ── Encabezado ── */}
-      <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "700", color: "#f8fafc" }}>Tickets</h1>
-        <p style={{ margin: "6px 0 0", fontSize: "14px", color: colors.text.secondary }}>
-          Gestiona las solicitudes de mantenimiento de tus propiedades.
+      <div style={{ marginBottom: "24px" }}>
+        <h1 style={{ margin: 0, fontSize: "26px" }}>Tickets</h1>
+        <p style={{ color: colors.text.secondary, margin: "6px 0 0" }}>
+          Gestiona los reportes de mantenimiento de tus propiedades
         </p>
       </div>
 
       {/* ── Filtros ── */}
-      <div style={{ ...pageCard, marginBottom: "20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", alignItems: "flex-end" }}>
-          <div>
-            <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>Inquilino</label>
-            <select style={formInput} value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)}>
-              <option value="">Todos</option>
-              {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>Propiedad</label>
-            <select style={formInput} value={propertyFilter} onChange={(e) => setPropertyFilter(e.target.value)}>
-              <option value="">Todas</option>
-              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>Estado</label>
-            <select style={formInput} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="open">Abierto</option>
-              <option value="in_progress">En progreso</option>
-              <option value="resolved">Resuelto</option>
-              <option value="closed">Cerrado</option>
-            </select>
-          </div>
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: colors.text.secondary,
-                borderRadius: radius.md,
-                padding: "11px 14px",
-                cursor: "pointer",
-                fontSize: "13px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              ✕ Limpiar filtros
-            </button>
-          )}
+      <div style={{
+        ...card,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr 1fr auto",
+        gap: "16px",
+        alignItems: "end",
+        marginBottom: "24px",
+      }}>
+        <div style={field}>
+          <label style={labelStyle}>Inquilino</label>
+          <select style={selectStyle} value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)}>
+            <option value="">Todos</option>
+            {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
         </div>
 
-        {/* Contador de resultados */}
-        <div style={{ marginTop: "12px", fontSize: "12px", color: colors.text.muted }}>
-          {hasFilters
-            ? `${filtered.length} de ${tickets.length} tickets`
-            : `${tickets.length} tickets en total`}
+        <div style={field}>
+          <label style={labelStyle}>Propiedad</label>
+          <select style={selectStyle} value={propertyFilter} onChange={(e) => setPropertyFilter(e.target.value)}>
+            <option value="">Todas</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
+
+        <div style={field}>
+          <label style={labelStyle}>Estado</label>
+          <select style={selectStyle} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="open">Abierto</option>
+            <option value="in_progress">En progreso</option>
+            <option value="resolved">Resuelto</option>
+            <option value="closed">Cerrado</option>
+          </select>
+        </div>
+
+        {hasFilters && (
+          <button
+            style={{ ...buttons.neutral, whiteSpace: "nowrap" }}
+            onClick={() => { setTenantFilter(""); setPropertyFilter(""); setStatusFilter(""); }}
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
 
-      {/* ── Lista de tickets ── */}
+      {/* ── Contador ── */}
+      {!loading && (
+        <p style={{ color: colors.text.muted, fontSize: "13px", marginBottom: "16px" }}>
+          {filteredTickets.length} ticket{filteredTickets.length !== 1 ? "s" : ""}
+          {hasFilters ? " encontrados" : " en total"}
+        </p>
+      )}
+
+      {/* ── Lista ── */}
       {loading ? (
-        <LoadingRows count={3} height={100} />
-      ) : filtered.length === 0 ? (
-        <EmptyTickets />
+        <p style={{ color: colors.text.muted }}>Cargando tickets...</p>
+      ) : filteredTickets.length === 0 ? (
+        <div style={{ ...card, textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🎉</div>
+          <h3 style={{ margin: "0 0 8px", color: colors.text.primary }}>No hay tickets pendientes</h3>
+          <p style={{ margin: 0, color: colors.text.muted }}>
+            {hasFilters ? "Prueba cambiando los filtros" : "Todo está en orden"}
+          </p>
+        </div>
       ) : (
-        <div style={{ display: "grid", gap: "10px" }}>
-          {filtered.map((ticket) => (
-            <TicketRow
+        <div style={{ display: "grid", gap: "12px" }}>
+          {filteredTickets.map((ticket) => (
+            <div
               key={ticket._id}
-              ticket={ticket}
-              saving={savingId === ticket._id}
-              onUpdate={(updates) => updateField(ticket._id, updates)}
-              onOpen={() => { setSelectedTicket(ticket); setReplyMessage(""); }}
-            />
+              style={{
+                ...card,
+                borderLeft: `4px solid ${PRIORITY_BORDER[ticket.priority] || colors.border.default}`,
+                padding: 0,
+                overflow: "hidden",
+              }}
+            >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "20px",
+                flexWrap: "wrap",
+                padding: "18px 20px",
+              }}>
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: "260px" }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px", flexWrap: "wrap" }}>
+                    <h3 style={{ margin: 0, fontSize: "15px" }}>{ticket.title}</h3>
+                    <span style={getPriorityBadge(ticket.priority)}>
+                      {PRIORITY_LABELS[ticket.priority]}
+                    </span>
+                    <span style={getStatusBadgeStyle(STATUS_COLORS[ticket.status])}>
+                      {STATUS_LABELS[ticket.status]}
+                    </span>
+                  </div>
+                  <p style={{ margin: "0 0 4px", fontSize: "13px", color: colors.text.secondary }}>
+                    👤 {ticket.tenantId?.fullName || "N/D"} &nbsp;·&nbsp;
+                    🏢 {ticket.propertyId?.name   || "N/D"} &nbsp;·&nbsp;
+                    🚪 Unidad {ticket.unitId?.unitNumber || "N/D"}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "12px", color: colors.text.muted }}>
+                    {CATEGORY_LABELS[ticket.category] || ticket.category} &nbsp;·&nbsp;
+                    {new Date(ticket.createdAt).toLocaleDateString("es-DO", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })} &nbsp;·&nbsp;
+                    Vía {ticket.source === "whatsapp" ? "WhatsApp" : "Dashboard"}
+                  </p>
+                </div>
+
+                {/* Controles rápidos */}
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    style={{ ...selectStyle, width: "140px" }}
+                    value={ticket.priority}
+                    disabled={savingId === ticket._id}
+                    onChange={(e) => updateTicketField(ticket._id, { priority: e.target.value })}
+                  >
+                    <option value="high">🔴 Alta</option>
+                    <option value="medium">🟡 Media</option>
+                    <option value="low">🟢 Baja</option>
+                  </select>
+
+                  <select
+                    style={{ ...selectStyle, width: "150px" }}
+                    value={ticket.status}
+                    disabled={savingId === ticket._id}
+                    onChange={(e) => updateTicketField(ticket._id, { status: e.target.value })}
+                  >
+                    <option value="open">Abierto</option>
+                    <option value="in_progress">En progreso</option>
+                    <option value="resolved">Resuelto</option>
+                    <option value="closed">Cerrado</option>
+                  </select>
+
+                  <button
+                    style={buttons.primary}
+                    onClick={() => { setSelectedTicket(ticket); setReplyMessage(""); }}
+                  >
+                    Ver detalle
+                  </button>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
       {/* ── Modal de detalle ── */}
       {selectedTicket && (
-        <TicketModal
-          ticket={selectedTicket}
-          replyMessage={replyMessage}
-          onReplyChange={setReplyMessage}
-          sendingReply={sendingReply}
-          onSendEmail={handleSendEmail}
-          onSendWhatsApp={handleSendWhatsApp}
-          onClose={() => setSelectedTicket(null)}
-        />
+        <div style={overlayStyle} onClick={() => setSelectedTicket(null)}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "8px" }}>
+                  <span style={getPriorityBadge(selectedTicket.priority)}>
+                    {PRIORITY_LABELS[selectedTicket.priority]}
+                  </span>
+                  <span style={getStatusBadgeStyle(STATUS_COLORS[selectedTicket.status])}>
+                    {STATUS_LABELS[selectedTicket.status]}
+                  </span>
+                </div>
+                <h2 style={{ margin: "0 0 4px", fontSize: "20px" }}>{selectedTicket.title}</h2>
+                <p style={{ margin: 0, fontSize: "12px", color: colors.text.muted }}>
+                  ID: {selectedTicket._id}
+                </p>
+              </div>
+              <button
+                style={{ ...buttons.neutral, marginLeft: "16px" }}
+                onClick={() => setSelectedTicket(null)}
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            {/* Info grid */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "12px",
+              marginBottom: "20px",
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: radius.lg,
+              padding: "16px",
+            }}>
+              <InfoRow label="Inquilino"  value={selectedTicket.tenantId?.fullName} />
+              <InfoRow label="Email"      value={selectedTicket.tenantId?.email} />
+              <InfoRow label="Teléfono"   value={selectedTicket.tenantId?.phone} />
+              <InfoRow label="Propiedad"  value={selectedTicket.propertyId?.name} />
+              <InfoRow label="Categoría"  value={CATEGORY_LABELS[selectedTicket.category] || selectedTicket.category} />
+              <InfoRow label="Fecha"      value={new Date(selectedTicket.createdAt).toLocaleDateString("es-DO", {
+                day: "numeric", month: "long", year: "numeric",
+              })} />
+            </div>
+
+            {/* Descripción */}
+            <div style={{ marginBottom: "20px" }}>
+              <p style={labelStyle}>Descripción</p>
+              <p style={{ margin: 0, color: colors.text.secondary, fontSize: "14px", lineHeight: 1.6 }}>
+                {selectedTicket.description}
+              </p>
+            </div>
+
+            {selectedTicket.notes && (
+              <div style={{ marginBottom: "20px" }}>
+                <p style={labelStyle}>Notas internas</p>
+                <p style={{ margin: 0, color: colors.text.secondary, fontSize: "14px" }}>
+                  {selectedTicket.notes}
+                </p>
+              </div>
+            )}
+
+            {/* Historial de comunicaciones */}
+            <div style={{ marginBottom: "20px" }}>
+              <p style={{ ...labelStyle, marginBottom: "12px" }}>
+                Historial de comunicaciones ({selectedTicket.communications?.length || 0})
+              </p>
+              {!selectedTicket.communications?.length ? (
+                <p style={{ color: colors.text.muted, fontSize: "13px" }}>
+                  Aún no hay comunicaciones registradas
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: "10px", maxHeight: "200px", overflowY: "auto" }}>
+                  {[...selectedTicket.communications]
+                    .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
+                    .map((comm, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          borderRadius: radius.md,
+                          padding: "12px 14px",
+                          borderLeft: `3px solid ${comm.channel === "email" ? colors.action.primary : colors.action.whatsapp}`,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{
+                            fontSize: "12px", fontWeight: "bold",
+                            color: comm.channel === "email" ? colors.action.primary : colors.action.whatsapp,
+                          }}>
+                            {comm.channel === "email" ? "📧 Email" : "💬 WhatsApp"}
+                          </span>
+                          <span style={{ fontSize: "11px", color: colors.text.muted }}>
+                            {new Date(comm.sentAt).toLocaleString("es-DO")}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: "13px", color: colors.text.secondary }}>
+                          {comm.message}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Área de respuesta */}
+            <div style={{ borderTop: `1px solid ${colors.border.subtle}`, paddingTop: "20px" }}>
+              <p style={labelStyle}>Enviar mensaje al inquilino</p>
+              <textarea
+                style={{ ...input, minHeight: "100px", resize: "vertical", marginBottom: "12px" }}
+                placeholder="Escribe aquí el mensaje para el inquilino..."
+                value={replyMessage}
+                onChange={(e) => setReplyMessage(e.target.value)}
+              />
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <button
+                  style={{ ...buttons.primary, opacity: sendingReply ? 0.7 : 1 }}
+                  disabled={sendingReply}
+                  onClick={handleSendEmail}
+                >
+                  📧 Enviar por email
+                </button>
+                <button
+                  style={{ ...buttons.whatsapp, opacity: sendingReply ? 0.7 : 1 }}
+                  disabled={sendingReply}
+                  onClick={handleSendWhatsApp}
+                >
+                  💬 Enviar por WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <ToastContainer toasts={toasts} onClose={removeToast} />
@@ -261,253 +469,57 @@ export default function Tickets() {
   );
 }
 
-// ─── TicketRow ────────────────────────────────────────────────────────────────
-function TicketRow({ ticket, saving, onUpdate, onOpen }) {
+// ─── Sub-componentes ──────────────────────────────────────────────────────────
+
+function InfoRow({ label, value }) {
   return (
-    <div style={{
-      background: "rgba(255,255,255,0.05)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderLeft: `3px solid ${PRIORITY_BORDER[ticket.priority] || "#64748b"}`,
-      borderRadius: `0 ${radius.xl} ${radius.xl} 0`,
-      padding: "16px 20px",
-      display: "flex",
-      justifyContent: "space-between",
-      gap: "20px",
-      flexWrap: "wrap",
-      alignItems: "center",
-    }}>
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: "240px" }}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "4px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "15px", fontWeight: "600", color: "#f1f5f9" }}>{ticket.title}</span>
-          <PriorityBadge priority={ticket.priority} />
-          <TicketStatusBadge status={ticket.status} />
-        </div>
-        <p style={{ margin: "0 0 3px", fontSize: "12px", color: colors.text.muted }}>
-          {ticket.tenantId?.fullName || "N/D"} — {ticket.propertyId?.name || "N/D"}, Unidad {ticket.unitId?.unitNumber || "N/D"}
-        </p>
-        <p style={{ margin: 0, fontSize: "11px", color: "#475569" }}>
-          {CATEGORY_LABELS[ticket.category] || ticket.category} ·{" "}
-          {new Date(ticket.createdAt).toLocaleDateString("es-DO")} ·{" "}
-          {ticket.source === "whatsapp" ? "💬 WhatsApp" : "🖥 Dashboard"}
-        </p>
-      </div>
-
-      {/* Controles rápidos */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", minWidth: "200px" }}>
-        <div>
-          <label style={{ ...labelStyle, display: "block", marginBottom: "4px", fontSize: "11px" }}>Prioridad</label>
-          <select
-            style={{ ...formInput, padding: "7px 10px", fontSize: "12px" }}
-            value={ticket.priority}
-            disabled={saving}
-            onChange={(e) => onUpdate({ priority: e.target.value })}
-          >
-            <option value="high">Alta</option>
-            <option value="medium">Media</option>
-            <option value="low">Baja</option>
-          </select>
-        </div>
-        <div>
-          <label style={{ ...labelStyle, display: "block", marginBottom: "4px", fontSize: "11px" }}>Estado</label>
-          <select
-            style={{ ...formInput, padding: "7px 10px", fontSize: "12px" }}
-            value={ticket.status}
-            disabled={saving}
-            onChange={(e) => onUpdate({ status: e.target.value })}
-          >
-            <option value="open">Abierto</option>
-            <option value="in_progress">En progreso</option>
-            <option value="resolved">Resuelto</option>
-            <option value="closed">Cerrado</option>
-          </select>
-        </div>
-        <button
-          onClick={onOpen}
-          style={{
-            gridColumn: "1 / -1",
-            background: "#2563eb", color: "#fff",
-            border: "none", borderRadius: radius.md,
-            padding: "8px", fontSize: "12px", fontWeight: "600",
-            cursor: "pointer",
-          }}
-        >
-          Ver detalle →
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── TicketModal ──────────────────────────────────────────────────────────────
-function TicketModal({ ticket, replyMessage, onReplyChange, sendingReply, onSendEmail, onSendWhatsApp, onClose }) {
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "20px", zIndex: 1000,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: "100%", maxWidth: "700px",
-          maxHeight: "90vh", overflowY: "auto",
-          background: "#0f172a",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "18px", padding: "24px",
-          color: "white",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header modal */}
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", marginBottom: "20px" }}>
-          <div>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
-              <PriorityBadge priority={ticket.priority} />
-              <TicketStatusBadge status={ticket.status} />
-            </div>
-            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#f1f5f9" }}>
-              {ticket.title}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: radius.md, padding: "7px 12px",
-              color: "#94a3b8", cursor: "pointer", fontSize: "12px", flexShrink: 0,
-            }}
-          >
-            Cerrar (Esc)
-          </button>
-        </div>
-
-        {/* Datos del ticket */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px",
-          marginBottom: "20px", padding: "16px",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          borderRadius: radius.lg,
-        }}>
-          <ModalInfo label="Inquilino"     value={ticket.tenantId?.fullName} />
-          <ModalInfo label="Email"         value={ticket.tenantId?.email} />
-          <ModalInfo label="Teléfono"      value={ticket.tenantId?.phone} />
-          <ModalInfo label="Propiedad"     value={ticket.propertyId?.name} />
-          <ModalInfo label="Unidad"        value={ticket.unitId?.unitNumber} />
-          <ModalInfo label="Categoría"     value={CATEGORY_LABELS[ticket.category] || ticket.category} />
-          <ModalInfo label="Origen"        value={ticket.source === "whatsapp" ? "💬 WhatsApp" : "🖥 Dashboard"} />
-          <ModalInfo label="Fecha"         value={new Date(ticket.createdAt).toLocaleString("es-DO")} />
-        </div>
-
-        <ModalInfo label="Descripción" value={ticket.description} />
-        {ticket.notes && <ModalInfo label="Notas internas" value={ticket.notes} />}
-
-        {/* Historial de comunicaciones */}
-        {ticket.communications?.length > 0 && (
-          <div style={{ marginTop: "20px" }}>
-            <p style={{
-              margin: "0 0 10px", fontSize: "12px", fontWeight: "600",
-              color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em",
-            }}>
-              Historial de comunicaciones
-            </p>
-            <div style={{ display: "grid", gap: "8px" }}>
-              {[...ticket.communications]
-                .sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt))
-                .map((c, i) => (
-                  <div key={i} style={{
-                    padding: "10px 14px",
-                    background: "rgba(255,255,255,0.03)",
-                    border: `1px solid ${c.channel === "email" ? "rgba(37,99,235,0.2)" : "rgba(34,197,94,0.2)"}`,
-                    borderRadius: radius.md,
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
-                      <span style={{
-                        fontSize: "11px", fontWeight: "700",
-                        color: c.channel === "email" ? "#60a5fa" : "#4ade80",
-                        textTransform: "uppercase", letterSpacing: "0.05em",
-                      }}>
-                        {c.channel === "email" ? "📧 Email" : "💬 WhatsApp"}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#475569" }}>
-                        {new Date(c.sentAt).toLocaleString("es-DO")}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: "13px", color: "#cbd5e1" }}>{c.message}</p>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Enviar respuesta */}
-        <div style={{ marginTop: "20px" }}>
-          <p style={{
-            margin: "0 0 8px", fontSize: "12px", fontWeight: "600",
-            color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em",
-          }}>
-            Enviar mensaje al inquilino
-          </p>
-          <textarea
-            style={{
-              width: "100%", minHeight: "110px", resize: "vertical",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: radius.md, padding: "12px 14px",
-              color: "#f1f5f9", fontSize: "13px", fontFamily: "inherit",
-              outline: "none",
-            }}
-            placeholder="Escribe aquí el mensaje para el inquilino..."
-            value={replyMessage}
-            onChange={(e) => onReplyChange(e.target.value)}
-          />
-          <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
-            <button
-              onClick={onSendEmail}
-              disabled={sendingReply}
-              style={{
-                background: "#2563eb", color: "#fff",
-                border: "none", borderRadius: radius.md,
-                padding: "10px 18px", fontSize: "13px", fontWeight: "600",
-                cursor: "pointer", opacity: sendingReply ? 0.7 : 1,
-              }}
-            >
-              📧 Enviar por email
-            </button>
-            <button
-              onClick={onSendWhatsApp}
-              disabled={sendingReply}
-              style={{
-                background: "#16a34a", color: "#fff",
-                border: "none", borderRadius: radius.md,
-                padding: "10px 18px", fontSize: "13px", fontWeight: "600",
-                cursor: "pointer", opacity: sendingReply ? 0.7 : 1,
-              }}
-            >
-              💬 Enviar por WhatsApp
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── ModalInfo ────────────────────────────────────────────────────────────────
-function ModalInfo({ label, value }) {
-  return (
-    <div style={{ marginBottom: "4px" }}>
-      <span style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+    <div>
+      <p style={{ margin: "0 0 2px", fontSize: "11px", color: colors.text.muted, textTransform: "uppercase", letterSpacing: "0.5px" }}>
         {label}
-      </span>
-      <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#cbd5e1", lineHeight: 1.45 }}>
-        {value || "—"}
+      </p>
+      <p style={{ margin: 0, fontSize: "14px", color: colors.text.secondary }}>
+        {value || "N/D"}
       </p>
     </div>
   );
 }
+
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+
+const labelStyle = {
+  fontSize: "12px",
+  color: colors.text.muted,
+  textTransform: "uppercase",
+  letterSpacing: "0.5px",
+  margin: "0 0 6px",
+};
+
+const selectStyle = {
+  ...input,
+  cursor: "pointer",
+  background: colors.bg.secondary,
+  color: colors.text.primary,
+};
+
+const overlayStyle = {
+  position: "fixed",
+  inset: 0,
+  background: colors.bg.overlay,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "20px",
+  zIndex: 1000,
+};
+
+const modalStyle = {
+  width: "100%",
+  maxWidth: "780px",
+  maxHeight: "90vh",
+  overflowY: "auto",
+  background: colors.bg.secondary,
+  border: `1px solid ${colors.border.default}`,
+  borderRadius: radius.xxl,
+  padding: "28px",
+  color: colors.text.primary,
+};

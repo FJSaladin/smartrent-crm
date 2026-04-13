@@ -36,10 +36,10 @@ export default function App() {
       <Route path="/verify-email"        element={<VerifyEmail />} />
       <Route path="/resend-verification" element={<ResendVerification />} />
 
-      {/* ── Rutas del landlord (con sidebar) ── */}
+      {/* ── Rutas del landlord ── */}
       <Route
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="landlord">
             <AppLayout />
           </ProtectedRoute>
         }
@@ -52,10 +52,10 @@ export default function App() {
         <Route path="/tickets"     element={<Tickets />} />
       </Route>
 
-      {/* ── Portal del tenant (layout diferente, top bar) ── */}
+      {/* ── Portal del tenant ── */}
       <Route
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="tenant">
             <TenantLayout />
           </ProtectedRoute>
         }
