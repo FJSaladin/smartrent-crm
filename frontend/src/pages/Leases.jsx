@@ -1,83 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../services/api";
+import { useToast, ToastContainer } from "../components/ui/Toast";
+import { LeaseStatusBadge } from "../components/ui/Badge";
+import { EmptyLeases, LoadingRows } from "../components/ui/EmptyState";
+import {
+  pageCard, formInput, formField, btn, labelStyle,
+  sectionHeader, sectionTitle, twoColLayout,
+  pageTitle, pageSubtitle, InfoRow, CountBadge,
+} from "../components/ui/formStyles";
+
+function fmtDate(value) {
+  if (!value) return "";
+  return new Date(value).toISOString().split("T")[0];
+}
+
+function fmtMoney(n) {
+  return `$${Number(n || 0).toLocaleString()}`;
+}
 
 export default function Leases() {
-  const [leases, setLeases] = useState([]);
+  const [leases, setLeases]       = useState([]);
   const [properties, setProperties] = useState([]);
-  const [units, setUnits] = useState([]);
-  const [tenants, setTenants] = useState([]);
-
+  const [units, setUnits]         = useState([]);
+  const [tenants, setTenants]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving]       = useState(false);
   const [editingId, setEditingId] = useState(null);
 
   const [propertyId, setPropertyId] = useState("");
-  const [unitId, setUnitId] = useState("");
-  const [tenantId, setTenantId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [unitId, setUnitId]         = useState("");
+  const [tenantId, setTenantId]     = useState("");
+  const [startDate, setStartDate]   = useState("");
+  const [endDate, setEndDate]       = useState("");
   const [monthlyRent, setMonthlyRent] = useState("");
-  const [deposit, setDeposit] = useState("");
-  const [dueDay, setDueDay] = useState("1");
-  const [status, setStatus] = useState("active");
-  const [notes, setNotes] = useState("");
+  const [deposit, setDeposit]       = useState("");
+  const [dueDay, setDueDay]         = useState("1");
+  const [status, setStatus]         = useState("active");
+  const [notes, setNotes]           = useState("");
 
-  const [loading, setLoading] = useState(true);
-  const [loadingData, setLoadingData] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const { toasts, showToast, removeToast } = useToast();
 
+  // Unidades filtradas por propiedad seleccionada
   const filteredUnits = useMemo(() => {
     if (!propertyId) return [];
     return units.filter((u) => String(u.propertyId) === String(propertyId));
   }, [units, propertyId]);
 
-  useEffect(() => {
-    loadInitialData();
-    loadLeases();
-  }, []);
+  useEffect(() => { loadInitialData(); loadLeases(); }, []);
 
+  // Si cambia la propiedad, resetea la unidad
   useEffect(() => {
-    if (!propertyId) {
-      setUnitId("");
-      return;
-    }
-
-    const stillExists = filteredUnits.some((u) => u._id === unitId);
-    if (!stillExists) setUnitId("");
+    const exists = filteredUnits.some((u) => u._id === unitId);
+    if (!exists) setUnitId("");
   }, [propertyId, filteredUnits, unitId]);
 
   async function loadInitialData() {
     try {
-      setError("");
-
-      const [propertiesRes, tenantsRes] = await Promise.all([
+      const [propsRes, tenantsRes] = await Promise.all([
         apiFetch("/api/properties"),
         apiFetch("/api/tenants"),
       ]);
-
-      const props = propertiesRes.properties || [];
-      const tenantList = tenantsRes.tenants || [];
-
+      const props = propsRes.properties || [];
       setProperties(props);
-      setTenants(tenantList);
+      setTenants(tenantsRes.tenants || []);
 
+      // Carga todas las unidades de todas las propiedades
       const allUnits = [];
-
-      for (const property of props) {
+      for (const p of props) {
         try {
-          const unitsRes = await apiFetch(`/api/properties/${property._id}/units`);
-          const propertyUnits = (unitsRes.units || []).map((u) => ({
-            ...u,
-            propertyId: u.propertyId || property._id,
-          }));
-          allUnits.push(...propertyUnits);
-        } catch {
-          // ignorar si alguna propiedad no devuelve units
-        }
+          const r = await apiFetch(`/api/properties/${p._id}/units`);
+          allUnits.push(...(r.units || []).map((u) => ({ ...u, propertyId: u.propertyId || p._id })));
+        } catch {/* ignora propiedades sin unidades */}
       }
-
       setUnits(allUnits);
     } catch (err) {
-      setError(err.message || "No se pudieron cargar los datos del formulario");
+      showToast(err.message || "No se pudieron cargar los datos", "error");
     } finally {
       setLoadingData(false);
     }
@@ -85,11 +83,10 @@ export default function Leases() {
 
   async function loadLeases() {
     try {
-      setError("");
       const data = await apiFetch("/api/leases");
       setLeases(data.leases || []);
     } catch (err) {
-      setError(err.message || "No se pudieron cargar los leases");
+      showToast(err.message || "No se pudieron cargar los contratos", "error");
     } finally {
       setLoading(false);
     }
@@ -97,420 +94,216 @@ export default function Leases() {
 
   function resetForm() {
     setEditingId(null);
-    setPropertyId("");
-    setUnitId("");
-    setTenantId("");
-    setStartDate("");
-    setEndDate("");
-    setMonthlyRent("");
-    setDeposit("");
-    setDueDay("1");
-    setStatus("active");
-    setNotes("");
+    setPropertyId(""); setUnitId(""); setTenantId("");
+    setStartDate(""); setEndDate(""); setMonthlyRent("");
+    setDeposit(""); setDueDay("1"); setStatus("active"); setNotes("");
   }
 
-  function resolvePropertyIdFromLease(lease) {
-    if (lease.propertyId && typeof lease.propertyId === "object") {
-      return lease.propertyId._id || "";
-    }
-    return lease.propertyId || "";
-  }
-
-  function resolveUnitIdFromLease(lease) {
-    if (lease.unitId && typeof lease.unitId === "object") {
-      return lease.unitId._id || "";
-    }
-    return lease.unitId || "";
-  }
-
-  function resolveTenantIdFromLease(lease) {
-    if (lease.tenantId && typeof lease.tenantId === "object") {
-      return lease.tenantId._id || "";
-    }
-    return lease.tenantId || "";
-  }
-
-  function formatDateForInput(value) {
-    if (!value) return "";
-    return new Date(value).toISOString().split("T")[0];
+  function getId(field) {
+    return (field && typeof field === "object") ? field._id || "" : field || "";
   }
 
   function startEdit(lease) {
     setEditingId(lease._id);
-    setPropertyId(resolvePropertyIdFromLease(lease));
-    setUnitId(resolveUnitIdFromLease(lease));
-    setTenantId(resolveTenantIdFromLease(lease));
-    setStartDate(formatDateForInput(lease.startDate));
-    setEndDate(formatDateForInput(lease.endDate));
+    setPropertyId(getId(lease.propertyId));
+    setUnitId(getId(lease.unitId));
+    setTenantId(getId(lease.tenantId));
+    setStartDate(fmtDate(lease.startDate));
+    setEndDate(fmtDate(lease.endDate));
     setMonthlyRent(String(lease.monthlyRent ?? ""));
     setDeposit(String(lease.deposit ?? ""));
     setDueDay(String(lease.dueDay ?? 1));
     setStatus(lease.status || "active");
     setNotes(lease.notes || "");
-    setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-
     if (!propertyId || !unitId || !tenantId || !startDate || !endDate || !monthlyRent) {
-      setError("Debes completar property, unit, tenant, fechas y renta mensual");
+      showToast("Completa propiedad, unidad, inquilino, fechas y renta", "error");
       return;
     }
-
     setSaving(true);
-
     try {
       const payload = {
-        unitId,
-        tenantId,
-        startDate,
-        endDate,
+        unitId, tenantId,
+        startDate, endDate,
         monthlyRent: Number(monthlyRent),
         deposit: Number(deposit || 0),
         dueDay: Number(dueDay || 1),
-        status,
-        notes: notes.trim(),
+        status, notes: notes.trim(),
       };
-
       if (editingId) {
-        const data = await apiFetch(`/api/leases/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-
-        setLeases((prev) =>
-          prev.map((l) => (l._id === editingId ? data.lease : l))
-        );
+        const data = await apiFetch(`/api/leases/${editingId}`, { method: "PUT", body: JSON.stringify(payload) });
+        setLeases((prev) => prev.map((l) => (l._id === editingId ? data.lease : l)));
+        showToast("Contrato actualizado correctamente", "success");
       } else {
-        const data = await apiFetch("/api/leases", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-
+        await apiFetch("/api/leases", { method: "POST", body: JSON.stringify(payload) });
         await loadLeases();
-        setLeases((prev) =>
-          data.lease ? [data.lease, ...prev.filter((l) => l._id !== data.lease._id)] : prev
-        );
+        showToast("Contrato creado correctamente", "success");
       }
-
       resetForm();
-      await loadLeases();
     } catch (err) {
-      setError(
-        err.message ||
-          (editingId ? "No se pudo actualizar el lease" : "No se pudo crear el lease")
-      );
+      showToast(err.message || "Error al guardar", "error");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteLease(id) {
-    const confirmed = window.confirm("¿Seguro que deseas eliminar este lease?");
-    if (!confirmed) return;
-
+  async function handleDelete(id) {
+    if (!window.confirm("¿Eliminar este contrato?")) return;
     try {
-      await apiFetch(`/api/leases/${id}`, {
-        method: "DELETE",
-      });
-
+      await apiFetch(`/api/leases/${id}`, { method: "DELETE" });
       setLeases((prev) => prev.filter((l) => l._id !== id));
-
-      if (editingId === id) {
-        resetForm();
-      }
+      if (editingId === id) resetForm();
+      showToast("Contrato eliminado", "info");
     } catch (err) {
-      setError(err.message || "No se pudo eliminar el lease");
+      showToast(err.message || "No se pudo eliminar", "error");
     }
   }
 
-  function getPropertyLabel(lease) {
-    if (lease.propertyId && typeof lease.propertyId === "object") {
-      return lease.propertyId.name || "Sin propiedad";
-    }
-    return "Propiedad";
-  }
-
-  function getUnitLabel(lease) {
-    if (lease.unitId && typeof lease.unitId === "object") {
-      return lease.unitId.unitNumber || "Sin unidad";
-    }
-    return "Unidad";
-  }
-
-  function getTenantLabel(lease) {
-    if (lease.tenantId && typeof lease.tenantId === "object") {
-      return lease.tenantId.fullName || "Sin tenant";
-    }
-    return "Tenant";
+  function getLabel(field, fallback = "—") {
+    if (!field) return fallback;
+    if (typeof field === "object") return field.fullName || field.name || field.unitNumber || fallback;
+    return fallback;
   }
 
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Alquileres</h1>
-      <p style={{ color: "#cbd5e1" }}>
-        Gestiona los contratos de alquiler en SmartRent.
-      </p>
+      <h1 style={pageTitle}>Contratos de alquiler</h1>
+      <p style={pageSubtitle}>Gestiona los contratos de arrendamiento de tus propiedades.</p>
 
-      {error && (
-        <div
-          style={{
-            background: "#7f1d1d",
-            border: "1px solid #ef4444",
-            padding: "12px 14px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1.4fr",
-          gap: "24px",
-          marginTop: "24px",
-        }}
-      >
-        <div style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "10px",
-            }}
-          >
-            <h2 style={{ margin: 0 }}>
-              {editingId ? "Editar alquiler" : "Nuevo alquiler"}
-            </h2>
-
+      <div style={twoColLayout}>
+        {/* ── Formulario ── */}
+        <div style={pageCard}>
+          <div style={sectionHeader}>
+            <h2 style={sectionTitle}>{editingId ? "Editar contrato" : "Nuevo contrato"}</h2>
             {editingId && (
-              <button type="button" onClick={resetForm} style={secondaryButton}>
+              <button type="button" onClick={resetForm} style={{ ...btn.neutral, padding: "7px 12px", fontSize: "13px" }}>
                 Cancelar
               </button>
             )}
           </div>
 
           {loadingData ? (
-            <p>Cargando datos del formulario...</p>
+            <LoadingRows count={4} height={44} />
           ) : (
             <form onSubmit={handleSubmit}>
-              <div style={fieldStyle}>
-                <label>Propiedad</label>
-                <select
-                  style={inputStyle}
-                  value={propertyId}
-                  onChange={(e) => setPropertyId(e.target.value)}
-                >
+              <div style={formField}>
+                <label style={labelStyle}>Propiedad *</label>
+                <select style={formInput} value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>
                   <option value="">Selecciona una propiedad</option>
-                  {properties.map((property) => (
-                    <option key={property._id} value={property._id}>
-                      {property.name} - {property.address}
-                    </option>
-                  ))}
+                  {properties.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
                 </select>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Unidad</label>
-                <select
-                  style={inputStyle}
-                  value={unitId}
-                  onChange={(e) => setUnitId(e.target.value)}
-                  disabled={!propertyId}
-                >
-                  <option value="">Selecciona una unidad</option>
-                  {filteredUnits.map((unit) => (
-                    <option key={unit._id} value={unit._id}>
-                      Unidad {unit.unitNumber} - ${unit.rent}
-                    </option>
-                  ))}
+              <div style={formField}>
+                <label style={labelStyle}>Unidad *</label>
+                <select style={formInput} value={unitId} onChange={(e) => setUnitId(e.target.value)} disabled={!propertyId}>
+                  <option value="">{propertyId ? "Selecciona una unidad" : "Selecciona propiedad primero"}</option>
+                  {filteredUnits.map((u) => <option key={u._id} value={u._id}>Unidad {u.unitNumber} — {fmtMoney(u.rent)}/mes</option>)}
                 </select>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Inquilino</label>
-                <select
-                  style={inputStyle}
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                >
+              <div style={formField}>
+                <label style={labelStyle}>Inquilino *</label>
+                <select style={formInput} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
                   <option value="">Selecciona un inquilino</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant._id} value={tenant._id}>
-                      {tenant.fullName}
-                    </option>
-                  ))}
+                  {tenants.map((t) => <option key={t._id} value={t._id}>{t.fullName}</option>)}
                 </select>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Fecha de inicio</label>
-                <input
-                  style={inputStyle}
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={formField}>
+                  <label style={labelStyle}>Fecha inicio *</label>
+                  <input style={formInput} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                </div>
+                <div style={formField}>
+                  <label style={labelStyle}>Fecha fin *</label>
+                  <input style={formInput} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                </div>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Fecha de fin</label>
-                <input
-                  style={inputStyle}
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={formField}>
+                  <label style={labelStyle}>Renta mensual *</label>
+                  <input style={formInput} type="number" min="0" placeholder="0" value={monthlyRent} onChange={(e) => setMonthlyRent(e.target.value)} />
+                </div>
+                <div style={formField}>
+                  <label style={labelStyle}>Depósito</label>
+                  <input style={formInput} type="number" min="0" placeholder="0" value={deposit} onChange={(e) => setDeposit(e.target.value)} />
+                </div>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Renta mensual</label>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  min="0"
-                  value={monthlyRent}
-                  onChange={(e) => setMonthlyRent(e.target.value)}
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={formField}>
+                  <label style={labelStyle}>Día de pago (1–28)</label>
+                  <input style={formInput} type="number" min="1" max="28" value={dueDay} onChange={(e) => setDueDay(e.target.value)} />
+                </div>
+                <div style={formField}>
+                  <label style={labelStyle}>Estado</label>
+                  <select style={formInput} value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option value="active">Activo</option>
+                    <option value="pending">Pendiente</option>
+                    <option value="ended">Finalizado</option>
+                  </select>
+                </div>
               </div>
-
-              <div style={fieldStyle}>
-                <label>Depósito</label>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  min="0"
-                  value={deposit}
-                  onChange={(e) => setDeposit(e.target.value)}
-                />
+              <div style={formField}>
+                <label style={labelStyle}>Notas (opcional)</label>
+                <textarea style={{ ...formInput, minHeight: "76px", resize: "vertical" }} placeholder="Observaciones..." value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
-
-              <div style={fieldStyle}>
-                <label>Día de pago</label>
-                <input
-                  style={inputStyle}
-                  type="number"
-                  min="1"
-                  max="28"
-                  value={dueDay}
-                  onChange={(e) => setDueDay(e.target.value)}
-                />
-              </div>
-
-              <div style={fieldStyle}>
-                <label>Estado</label>
-                <select
-                  style={inputStyle}
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="active">Activo</option>
-                  <option value="pending">Pendiente</option>
-                  <option value="ended">Finalizado</option>
-                </select>
-              </div>
-
-              <div style={fieldStyle}>
-                <label>Notas</label>
-                <textarea
-                  style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
-                  placeholder="Observaciones opcionales"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              <button type="submit" style={primaryButton} disabled={saving}>
-                {saving
-                  ? editingId
-                    ? "Guardando..."
-                    : "Creando..."
-                  : editingId
-                  ? "Guardar cambios"
-                  : "Crear lease"}
+              <button type="submit" style={{ ...btn.primary, width: "100%" }} disabled={saving}>
+                {saving ? (editingId ? "Guardando..." : "Creando...") : (editingId ? "Guardar cambios" : "Crear contrato")}
               </button>
             </form>
           )}
         </div>
 
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Listado de Alquileres</h2>
+        {/* ── Listado ── */}
+        <div style={pageCard}>
+          <div style={sectionHeader}>
+            <h2 style={sectionTitle}>Listado de contratos</h2>
+            <CountBadge count={leases.length} />
+          </div>
 
           {loading ? (
-            <p>Cargando leases...</p>
+            <LoadingRows count={3} height={120} />
           ) : leases.length === 0 ? (
-            <p style={{ color: "#cbd5e1" }}>
-              Aún no hay contratos registrados.
-            </p>
+            <EmptyLeases />
           ) : (
-            <div style={{ display: "grid", gap: "14px" }}>
-              {leases.map((lease) => (
+            <div style={{ display: "grid", gap: "10px" }}>
+              {leases.map((l) => (
                 <div
-                  key={lease._id}
+                  key={l._id}
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "14px",
-                    padding: "16px",
+                    background: editingId === l._id ? "rgba(37,99,235,0.07)" : "rgba(255,255,255,0.04)",
+                    border: editingId === l._id ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(255,255,255,0.07)",
+                    borderLeft: `3px solid ${l.status === "active" ? "#22c55e" : l.status === "pending" ? "#f59e0b" : "#64748b"}`,
+                    borderRadius: "0 12px 12px 0",
+                    padding: "14px 16px",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "16px",
-                      alignItems: "start",
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ margin: "0 0 8px" }}>
-                        {getTenantLabel(lease)} - Unidad {getUnitLabel(lease)}
-                      </h3>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Property:</strong> {getPropertyLabel(lease)}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Renta:</strong> ${lease.monthlyRent}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Depósito:</strong> ${lease.deposit}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Inicio:</strong> {formatDateForInput(lease.startDate)}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Fin:</strong> {formatDateForInput(lease.endDate)}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Día de pago:</strong> {lease.dueDay}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Estado:</strong> {lease.status}
-                      </p>
-                      <p style={{ margin: 0, color: "#cbd5e1" }}>
-                        <strong>Notas:</strong> {lease.notes || "Sin notas"}
-                      </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "15px", fontWeight: "600", color: "#f1f5f9" }}>
+                          {getLabel(l.tenantId)} — Unidad {getLabel(l.unitId)}
+                        </span>
+                        <LeaseStatusBadge status={l.status} />
+                      </div>
+                      <InfoRow label="Propiedad" value={getLabel(l.propertyId)} />
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                        <InfoRow label="Renta" value={fmtMoney(l.monthlyRent)} />
+                        <InfoRow label="Depósito" value={fmtMoney(l.deposit)} />
+                        <InfoRow label="Pago día" value={l.dueDay} />
+                      </div>
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                        <InfoRow label="Inicio" value={fmtDate(l.startDate)} />
+                        <InfoRow label="Fin" value={fmtDate(l.endDate)} />
+                      </div>
+                      {l.notes && <InfoRow label="Notas" value={l.notes} />}
                     </div>
-
-                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <button onClick={() => startEdit(lease)} style={editButton}>
-                        Editar
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteLease(lease._id)}
-                        style={dangerButton}
-                      >
-                        Eliminar
-                      </button>
+                    <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                      <button onClick={() => startEdit(l)} style={{ ...btn.warning, padding: "7px 12px", fontSize: "12px" }}>Editar</button>
+                      <button onClick={() => handleDelete(l._id)} style={{ ...btn.danger, padding: "7px 12px", fontSize: "12px" }}>Eliminar</button>
                     </div>
                   </div>
                 </div>
@@ -519,72 +312,8 @@ export default function Leases() {
           )}
         </div>
       </div>
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }
-
-const cardStyle = {
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: "16px",
-  padding: "20px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-};
-
-const fieldStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  marginBottom: "14px",
-};
-
-const inputStyle = {
-  width: "100%",
-  borderRadius: "10px",
-  padding: "12px 14px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.06)",
-  color: "white",
-  outline: "none",
-};
-
-const primaryButton = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#2563eb",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const secondaryButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#475569",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const editButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#f59e0b",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const dangerButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#ef4444",
-  color: "white",
-  fontWeight: "bold",
-};

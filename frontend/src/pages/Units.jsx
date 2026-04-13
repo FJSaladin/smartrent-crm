@@ -1,27 +1,40 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../services/api";
+import { useToast, ToastContainer } from "../components/ui/Toast";
+import { UnitStatusBadge } from "../components/ui/Badge";
+import { EmptyUnits, LoadingRows } from "../components/ui/EmptyState";
+import {
+  pageCard, formInput, formField, btn, labelStyle,
+  sectionHeader, sectionTitle, twoColLayout,
+  pageTitle, pageSubtitle, InfoRow, CountBadge,
+} from "../components/ui/formStyles";
+
+const UNIT_BORDER = {
+  occupied: "#22c55e",
+  vacant:   "#f59e0b",
+  inactive: "#64748b",
+};
 
 export default function Units() {
-  const [properties, setProperties] = useState([]);
+  const [properties, setProperties]           = useState([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
-  const [units, setUnits] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+  const [units, setUnits]                     = useState([]);
+  const [editingId, setEditingId]             = useState(null);
 
   const [unitNumber, setUnitNumber] = useState("");
-  const [bedrooms, setBedrooms] = useState("");
-  const [bathrooms, setBathrooms] = useState("");
-  const [rent, setRent] = useState("");
-  const [status, setStatus] = useState("vacant");
-  const [notes, setNotes] = useState("");
+  const [bedrooms, setBedrooms]     = useState("");
+  const [bathrooms, setBathrooms]   = useState("");
+  const [rent, setRent]             = useState("");
+  const [status, setStatus]         = useState("vacant");
+  const [notes, setNotes]           = useState("");
 
   const [loadingProperties, setLoadingProperties] = useState(true);
-  const [loadingUnits, setLoadingUnits] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [loadingUnits, setLoadingUnits]           = useState(false);
+  const [saving, setSaving]                       = useState(false);
 
-  useEffect(() => {
-    loadProperties();
-  }, []);
+  const { toasts, showToast, removeToast } = useToast();
+
+  useEffect(() => { loadProperties(); }, []);
 
   useEffect(() => {
     if (selectedPropertyId) loadUnits(selectedPropertyId);
@@ -30,29 +43,24 @@ export default function Units() {
 
   async function loadProperties() {
     try {
-      setError("");
       const data = await apiFetch("/api/properties");
       const list = data.properties || [];
       setProperties(list);
-
-      if (list.length > 0) {
-        setSelectedPropertyId(list[0]._id);
-      }
+      if (list.length > 0) setSelectedPropertyId(list[0]._id);
     } catch (err) {
-      setError(err.message || "No se pudieron cargar las propiedades");
+      showToast(err.message || "No se pudieron cargar las propiedades", "error");
     } finally {
       setLoadingProperties(false);
     }
   }
 
   async function loadUnits(propertyId) {
+    setLoadingUnits(true);
     try {
-      setLoadingUnits(true);
-      setError("");
       const data = await apiFetch(`/api/properties/${propertyId}/units`);
       setUnits(data.units || []);
     } catch (err) {
-      setError(err.message || "No se pudieron cargar las unidades");
+      showToast(err.message || "No se pudieron cargar las unidades", "error");
     } finally {
       setLoadingUnits(false);
     }
@@ -60,328 +68,191 @@ export default function Units() {
 
   function resetForm() {
     setEditingId(null);
-    setUnitNumber("");
-    setBedrooms("");
-    setBathrooms("");
-    setRent("");
-    setStatus("vacant");
-    setNotes("");
+    setUnitNumber(""); setBedrooms(""); setBathrooms("");
+    setRent(""); setStatus("vacant"); setNotes("");
   }
 
-  function startEdit(unit) {
-    setEditingId(unit._id);
-    setUnitNumber(unit.unitNumber || "");
-    setBedrooms(unit.bedrooms ?? "");
-    setBathrooms(unit.bathrooms ?? "");
-    setRent(unit.rent ?? "");
-    setStatus(unit.status || "vacant");
-    setNotes(unit.notes || "");
-    setError("");
+  function startEdit(u) {
+    setEditingId(u._id);
+    setUnitNumber(u.unitNumber || "");
+    setBedrooms(u.bedrooms ?? ""); setBathrooms(u.bathrooms ?? "");
+    setRent(u.rent ?? ""); setStatus(u.status || "vacant");
+    setNotes(u.notes || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
-
-    if (!selectedPropertyId) {
-      setError("Debes seleccionar una propiedad");
-      return;
-    }
-
-    const cleanUnitNumber = unitNumber.trim();
-    const cleanNotes = notes.trim();
-
-    if (!cleanUnitNumber) {
-      setError("Debes completar el número de unidad");
-      return;
-    }
-
+    if (!selectedPropertyId) { showToast("Selecciona una propiedad", "error"); return; }
+    if (!unitNumber.trim()) { showToast("El número de unidad es obligatorio", "error"); return; }
     setSaving(true);
-
     try {
+      const payload = {
+        unitNumber: unitNumber.trim(),
+        bedrooms: Number(bedrooms || 0),
+        bathrooms: Number(bathrooms || 0),
+        rent: Number(rent || 0),
+        status, notes: notes.trim(),
+      };
       if (editingId) {
-        const data = await apiFetch(`/api/units/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            unitNumber: cleanUnitNumber,
-            bedrooms: Number(bedrooms || 0),
-            bathrooms: Number(bathrooms || 0),
-            rent: Number(rent || 0),
-            status,
-            notes: cleanNotes,
-          }),
-        });
-
-        setUnits((prev) =>
-          prev.map((u) => (u._id === editingId ? data.unit : u))
-        );
+        const data = await apiFetch(`/api/units/${editingId}`, { method: "PUT", body: JSON.stringify(payload) });
+        setUnits((prev) => prev.map((u) => (u._id === editingId ? data.unit : u)));
+        showToast("Unidad actualizada correctamente", "success");
       } else {
-        const data = await apiFetch(`/api/properties/${selectedPropertyId}/units`, {
-          method: "POST",
-          body: JSON.stringify({
-            unitNumber: cleanUnitNumber,
-            bedrooms: Number(bedrooms || 0),
-            bathrooms: Number(bathrooms || 0),
-            rent: Number(rent || 0),
-            status,
-            notes: cleanNotes,
-          }),
-        });
-
+        const data = await apiFetch(`/api/properties/${selectedPropertyId}/units`, { method: "POST", body: JSON.stringify(payload) });
         setUnits((prev) => [data.unit, ...prev]);
+        showToast("Unidad creada correctamente", "success");
       }
-
       resetForm();
     } catch (err) {
-      setError(
-        err.message ||
-          (editingId
-            ? "No se pudo actualizar la unidad"
-            : "No se pudo crear la unidad")
-      );
+      showToast(err.message || "Error al guardar", "error");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDeleteUnit(id) {
-    const confirmed = window.confirm("¿Seguro que deseas eliminar esta unidad?");
-    if (!confirmed) return;
-
+  async function handleDelete(id) {
+    if (!window.confirm("¿Eliminar esta unidad?")) return;
     try {
-      await apiFetch(`/api/units/${id}`, {
-        method: "DELETE",
-      });
-
+      await apiFetch(`/api/units/${id}`, { method: "DELETE" });
       setUnits((prev) => prev.filter((u) => u._id !== id));
-
-      if (editingId === id) {
-        resetForm();
-      }
+      if (editingId === id) resetForm();
+      showToast("Unidad eliminada", "info");
     } catch (err) {
-      setError(err.message || "No se pudo eliminar la unidad");
+      showToast(err.message || "No se pudo eliminar", "error");
     }
   }
 
+  const selectedProp = properties.find((p) => p._id === selectedPropertyId);
+  const occupiedCount = units.filter((u) => u.status === "occupied").length;
+
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Unidades</h1>
-      <p style={{ color: "#cbd5e1" }}>
-        Gestiona las unidades/apartamentos dentro de cada propiedad.
-      </p>
+      <h1 style={pageTitle}>Unidades</h1>
+      <p style={pageSubtitle}>Gestiona las unidades dentro de cada propiedad.</p>
 
-      {error && (
-        <div
-          style={{
-            background: "#7f1d1d",
-            border: "1px solid #ef4444",
-            padding: "12px 14px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div style={topCard}>
-        <label style={{ display: "block", marginBottom: "8px" }}>
-          Selecciona una propiedad
-        </label>
-        <select
-          style={inputStyle}
-          value={selectedPropertyId}
-          onChange={(e) => {
-            resetForm();
-            setSelectedPropertyId(e.target.value);
-          }}
-          disabled={loadingProperties || properties.length === 0}
-        >
-          {properties.length === 0 ? (
-            <option value="">No hay propiedades disponibles</option>
-          ) : (
-            properties.map((property) => (
-              <option key={property._id} value={property._id}>
-                {property.name} - {property.address}
-              </option>
-            ))
+      {/* Selector de propiedad */}
+      <div style={{ ...pageCard, marginTop: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <label style={{ ...labelStyle, display: "block", marginBottom: "6px" }}>
+              Propiedad activa
+            </label>
+            <select
+              style={{ ...formInput, margin: 0 }}
+              value={selectedPropertyId}
+              onChange={(e) => { resetForm(); setSelectedPropertyId(e.target.value); }}
+              disabled={loadingProperties || properties.length === 0}
+            >
+              {properties.length === 0
+                ? <option value="">No hay propiedades disponibles</option>
+                : properties.map((p) => (
+                  <option key={p._id} value={p._id}>{p.name} — {p.address}</option>
+                ))
+              }
+            </select>
+          </div>
+          {selectedProp && units.length > 0 && (
+            <div style={{ display: "flex", gap: "16px", flexShrink: 0 }}>
+              <Stat label="Total" value={units.length} />
+              <Stat label="Ocupadas" value={occupiedCount} color="#22c55e" />
+              <Stat label="Vacantes" value={units.length - occupiedCount} color="#f59e0b" />
+            </div>
           )}
-        </select>
+        </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1.4fr",
-          gap: "24px",
-          marginTop: "24px",
-        }}
-      >
-        <div style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              marginBottom: "10px",
-            }}
-          >
-            <h2 style={{ margin: 0 }}>
-              {editingId ? "Editar unidad" : "Nueva unidad"}
-            </h2>
-
+      <div style={twoColLayout}>
+        {/* ── Formulario ── */}
+        <div style={pageCard}>
+          <div style={sectionHeader}>
+            <h2 style={sectionTitle}>{editingId ? "Editar unidad" : "Nueva unidad"}</h2>
             {editingId && (
-              <button type="button" onClick={resetForm} style={secondaryButton}>
+              <button type="button" onClick={resetForm} style={{ ...btn.neutral, padding: "7px 12px", fontSize: "13px" }}>
                 Cancelar
               </button>
             )}
           </div>
-
           <form onSubmit={handleSubmit}>
-            <div style={fieldStyle}>
-              <label>Número de unidad</label>
-              <input
-                style={inputStyle}
-                type="text"
-                placeholder="Ej. 3B"
-                value={unitNumber}
-                onChange={(e) => setUnitNumber(e.target.value)}
-              />
+            <div style={formField}>
+              <label style={labelStyle}>Número de unidad *</label>
+              <input style={formInput} type="text" placeholder="Ej. 3B, 101, PH" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)} />
             </div>
-
-            <div style={fieldStyle}>
-              <label>Habitaciones</label>
-              <input
-                style={inputStyle}
-                type="number"
-                min="0"
-                value={bedrooms}
-                onChange={(e) => setBedrooms(e.target.value)}
-              />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div style={formField}>
+                <label style={labelStyle}>Habitaciones</label>
+                <input style={formInput} type="number" min="0" placeholder="0" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} />
+              </div>
+              <div style={formField}>
+                <label style={labelStyle}>Baños</label>
+                <input style={formInput} type="number" min="0" placeholder="0" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} />
+              </div>
             </div>
-
-            <div style={fieldStyle}>
-              <label>Baños</label>
-              <input
-                style={inputStyle}
-                type="number"
-                min="0"
-                value={bathrooms}
-                onChange={(e) => setBathrooms(e.target.value)}
-              />
+            <div style={formField}>
+              <label style={labelStyle}>Renta mensual (RD$)</label>
+              <input style={formInput} type="number" min="0" placeholder="0" value={rent} onChange={(e) => setRent(e.target.value)} />
             </div>
-
-            <div style={fieldStyle}>
-              <label>Renta</label>
-              <input
-                style={inputStyle}
-                type="number"
-                min="0"
-                value={rent}
-                onChange={(e) => setRent(e.target.value)}
-              />
-            </div>
-
-            <div style={fieldStyle}>
-              <label>Estado</label>
-              <select
-                style={inputStyle}
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
+            <div style={formField}>
+              <label style={labelStyle}>Estado</label>
+              <select style={formInput} value={status} onChange={(e) => setStatus(e.target.value)}>
                 <option value="vacant">Vacante</option>
                 <option value="occupied">Ocupada</option>
                 <option value="inactive">Inactiva</option>
               </select>
             </div>
-
-            <div style={fieldStyle}>
-              <label>Notas</label>
-              <textarea
-                style={{ ...inputStyle, minHeight: "90px", resize: "vertical" }}
-                placeholder="Observaciones opcionales"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
+            <div style={formField}>
+              <label style={labelStyle}>Notas (opcional)</label>
+              <textarea style={{ ...formInput, minHeight: "80px", resize: "vertical" }} placeholder="Observaciones..." value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-
-            <button type="submit" style={primaryButton} disabled={saving}>
-              {saving
-                ? editingId
-                  ? "Guardando..."
-                  : "Creando..."
-                : editingId
-                ? "Guardar cambios"
-                : "Crear unidad"}
+            <button type="submit" style={{ ...btn.primary, width: "100%" }} disabled={saving}>
+              {saving ? (editingId ? "Guardando..." : "Creando...") : (editingId ? "Guardar cambios" : "Crear unidad")}
             </button>
           </form>
         </div>
 
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Listado de unidades</h2>
+        {/* ── Listado ── */}
+        <div style={pageCard}>
+          <div style={sectionHeader}>
+            <h2 style={sectionTitle}>Unidades — {selectedProp?.name || "..."}</h2>
+            <CountBadge count={units.length} />
+          </div>
 
           {!selectedPropertyId ? (
-            <p style={{ color: "#cbd5e1" }}>
-              Selecciona una propiedad para ver sus unidades.
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: "13px" }}>Selecciona una propiedad para ver sus unidades.</p>
           ) : loadingUnits ? (
-            <p>Cargando unidades...</p>
+            <LoadingRows count={3} />
           ) : units.length === 0 ? (
-            <p style={{ color: "#cbd5e1" }}>
-              Aún no hay unidades registradas para esta propiedad.
-            </p>
+            <EmptyUnits />
           ) : (
-            <div style={{ display: "grid", gap: "14px" }}>
-              {units.map((unit) => (
+            <div style={{ display: "grid", gap: "10px" }}>
+              {units.map((u) => (
                 <div
-                  key={unit._id}
+                  key={u._id}
                   style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "14px",
-                    padding: "16px",
+                    background: editingId === u._id ? "rgba(37,99,235,0.07)" : "rgba(255,255,255,0.04)",
+                    border: editingId === u._id ? "1px solid rgba(37,99,235,0.25)" : "1px solid rgba(255,255,255,0.07)",
+                    borderLeft: `3px solid ${editingId === u._id ? "#2563eb" : (UNIT_BORDER[u.status] || "#64748b")}`,
+                    borderRadius: "0 12px 12px 0",
+                    padding: "14px 16px",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "16px",
-                      alignItems: "start",
-                    }}
-                  >
-                    <div>
-                      <h3 style={{ margin: "0 0 8px" }}>Unidad {unit.unitNumber}</h3>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Habitaciones:</strong> {unit.bedrooms}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Baños:</strong> {unit.bathrooms}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Renta:</strong> ${unit.rent}
-                      </p>
-                      <p style={{ margin: "0 0 6px", color: "#cbd5e1" }}>
-                        <strong>Estado:</strong> {unit.status}
-                      </p>
-                      <p style={{ margin: 0, color: "#cbd5e1" }}>
-                        <strong>Notas:</strong> {unit.notes || "Sin notas"}
-                      </p>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "15px", fontWeight: "600", color: "#f1f5f9" }}>Unidad {u.unitNumber}</span>
+                        <UnitStatusBadge status={u.status} />
+                      </div>
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                        <InfoRow label="Hab" value={u.bedrooms} />
+                        <InfoRow label="Baños" value={u.bathrooms} />
+                        <InfoRow label="Renta" value={`$${u.rent?.toLocaleString()}`} />
+                      </div>
+                      {u.notes && <InfoRow label="Notas" value={u.notes} />}
                     </div>
-
-                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <button onClick={() => startEdit(unit)} style={editButton}>
-                        Editar
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteUnit(unit._id)}
-                        style={dangerButton}
-                      >
-                        Eliminar
-                      </button>
+                    <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                      <button onClick={() => startEdit(u)} style={{ ...btn.warning, padding: "7px 12px", fontSize: "12px" }}>Editar</button>
+                      <button onClick={() => handleDelete(u._id)} style={{ ...btn.danger, padding: "7px 12px", fontSize: "12px" }}>Eliminar</button>
                     </div>
                   </div>
                 </div>
@@ -390,80 +261,17 @@ export default function Units() {
           )}
         </div>
       </div>
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }
 
-const topCard = {
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: "16px",
-  padding: "20px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-};
-
-const cardStyle = {
-  background: "rgba(255,255,255,0.08)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: "16px",
-  padding: "20px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
-};
-
-const fieldStyle = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  marginBottom: "14px",
-};
-
-const inputStyle = {
-  width: "100%",
-  borderRadius: "10px",
-  padding: "12px 14px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.06)",
-  color: "white",
-  outline: "none",
-};
-
-const primaryButton = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#2563eb",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const secondaryButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#475569",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const editButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#f59e0b",
-  color: "white",
-  fontWeight: "bold",
-};
-
-const dangerButton = {
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: "none",
-  cursor: "pointer",
-  background: "#ef4444",
-  color: "white",
-  fontWeight: "bold",
-};
+function Stat({ label, value, color = "#94a3b8" }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: "20px", fontWeight: "700", color }}>{value}</div>
+      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{label}</div>
+    </div>
+  );
+}
